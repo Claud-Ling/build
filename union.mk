@@ -67,11 +67,14 @@ prepare-cleaner:
 ARM_TF_EXPORTS ?= \
 	CROSS_COMPILE="$(CCACHE)$(AARCH64_CROSS_COMPILE)"
 
+ARM_TF_VERSION ?= $(call git_version,$(ARM_TF_PATH))
+
 ARM_TF_FLAGS ?= \
 	BL33=$(UBOOT_BIN) \
 	DEBUG=$(DEBUG) \
 	PLAT=$(SOC) \
-	SPD=opteed
+	SPD=opteed \
+	BUILD_STRING=$(ARM_TF_VERSION)
 
 ifneq ($(MCU_BIN),)
 ARM_TF_FLAGS += SCP_BL2=$(MCU_BIN)

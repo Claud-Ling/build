@@ -78,4 +78,12 @@ define filechk
 	fi
 endef
 
-
+# macro to get git version info of specified directory
+#   $1 = target directory
+#
+define git_version
+$(shell set -e;	\
+	cd $1 2>/dev/null;	\
+	git describe --always --dirty 2>/dev/null || echo Unknown;	\
+)
+endef
