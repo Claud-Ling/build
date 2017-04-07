@@ -108,11 +108,11 @@ arm-tf-clean:
 ifeq ($(BOOTDEV),nand)
 UDFT_DEFCONFIG			?= $(SOC)_evb_defconfig
 else ifeq ($(BOOTDEV),nor)
-	ifeq ($(STORAGE),nand)
-		UDFT_DEFCONFIG	?= $(SOC)_evb_defconfig
-	else
-		UDFT_DEFCONFIG	?= $(SOC)_emmc_defconfig
-	endif
+  ifeq ($(STORAGE),nand)
+    UDFT_DEFCONFIG		?= $(SOC)_evb_defconfig
+  else
+    UDFT_DEFCONFIG		?= $(SOC)_emmc_defconfig
+  endif
 else
 UDFT_DEFCONFIG			?= $(SOC)_emmc_defconfig
 endif
