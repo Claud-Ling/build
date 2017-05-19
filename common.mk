@@ -45,6 +45,9 @@ OPTEE_NAME			?= OP-TEE
 # default ta load location for sdk
 CFG_TEE_CLIENT_LOAD_PATH	?= /opt/Misc
 
+# override TEE FS subpath
+CFG_TEE_FS_SUBPATH		?= /protect
+
 # default high verbosity. slow uarts shall specify lower if prefered
 CFG_TEE_CORE_LOG_LEVEL		?= 2
 
@@ -213,6 +216,7 @@ OPTEE_CLIENT_COMMON_FLAGS ?= CFG_TEE_CLIENT_LOAD_PATH=$(CFG_TEE_CLIENT_LOAD_PATH
 ifneq ("$(origin CFG_TEE_EXTRA_CLIENT_LOAD_PATH)","undefined")
 OPTEE_CLIENT_COMMON_FLAGS += CFG_TEE_EXTRA_CLIENT_LOAD_PATH=$(CFG_TEE_EXTRA_CLIENT_LOAD_PATH)
 endif
+OPTEE_CLIENT_COMMON_FLAGS += CFG_TEE_FS_SUBPATH=$(CFG_TEE_FS_SUBPATH)
 
 optee-client-common:
 	$(MAKE) -C $(OPTEE_CLIENT_PATH) $(OPTEE_CLIENT_COMMON_FLAGS)	\
@@ -235,6 +239,9 @@ XTEST_COMMON_FLAGS ?= CROSS_COMPILE_HOST=$(CROSS_COMPILE_NS_USER)\
 	COMPILE_NS_USER=$(COMPILE_NS_USER) \
 	O=$(OPTEE_TEST_OUT_PATH)
 
+XTEST_COMMON_FLAGS += CFG_TA_DIR=$(CFG_TEE_CLIENT_LOAD_PATH)	\
+	CFG_TEE_FS_SUBPATH=$(CFG_TEE_FS_SUBPATH)
+
 xtest-common: optee-os optee-client
 	$(MAKE) -C $(OPTEE_TEST_PATH) $(XTEST_COMMON_FLAGS)
 
@@ -255,8 +262,8 @@ xtest-patch-common:
 ################################################################################
 
 #
-# generating ta.mk
-define filechk_ta.mk
+# generating common.mk
+define filechk_common.mk
 	(set -e;	\
 	 echo "#";	\
 	 echo "# Automatically generated file. DO NOT EDIT!";		\
@@ -314,25 +321,42 @@ define optee_install_ta
 	    find $(1) -name *.ta | xargs -n1 -i cp {} $(2);
 endef
 
+#
+# install all core stuffs to sdk
+# $1 - build type, [debug|release]
+#
+define optee_install_core
+	$(eval NO_USE=$(or $(filter $(1),debug release),$(error unknown build type $(1) - Should be debug or release)))
+	$(Q)set -e;	\
+	    mkdir -p $(OPTEE_SDK_PATH)/tee/$(1)/core;	\
+	    cp $(OPTEE_OS_BIN) $(OPTEE_SDK_PATH)/tee/$(1)/core;	\
+	    cp -r $(OPTEE_OS_PATH)/out/arm/export-ta_* $(OPTEE_SDK_PATH)/tee/$(1);
+endef
+
 OPTEE_SDK_ARCHIVE	?= $(notdir $(OPTEE_SDK_PATH)).tgz
 OPTEE_SDK_DOC		?= $(BUILD_PATH)/docs/sigmadesigns-optee-sdk-overview.md
-TA_MK_FILE		?= $(OPTEE_SDK_PATH)/mk/ta.mk
+COMMON_MK_FILE		?= $(OPTEE_SDK_PATH)/mk/common.mk
 TEE_RELEASE_FILE	?= $(OPTEE_SDK_PATH)/tee_release.h
 
 # Force check
-.PHONY : $(TA_MK_FILE)
-$(TA_MK_FILE) : $(BUILD_PATH)/Makefile
-	$(call filechk,ta.mk)
+.PHONY : $(COMMON_MK_FILE)
+$(COMMON_MK_FILE) : $(BUILD_PATH)/Makefile
+	$(call filechk,common.mk)
 
 .PHONY : $(TEE_RELEASE_FILE)
 $(TEE_RELEASE_FILE) : $(BUILD_PATH)/Makefile
 	$(call filechk,tee_release.h,__TEE_RELEASE_H__)
 
-optee-sdk-common: optee-sdk-prepare $(TA_MK_FILE) $(TEE_RELEASE_FILE) optee-os xtest optee-sdk-doc
-	$(Q)mkdir -p $(OPTEE_SDK_PATH)/tee/core
-	$(Q)cp $(OPTEE_OS_BIN) $(OPTEE_SDK_PATH)/tee/core
-	$(Q)mkdir -p $(OPTEE_SDK_PATH)/tee
-	$(Q)cp -r $(OPTEE_OS_PATH)/out/arm/export-ta_* $(OPTEE_SDK_PATH)/tee
+# Develop build for optee_os
+optee-os-dev:
+	$(MAKE) -C $(OPTEE_OS_PATH) $(OPTEE_OS_COMMON_FLAGS) CFG_TEE_CORE_DEBUG=y
+	$(call optee_install_core,debug)
+
+# Product build for optee_os
+optee-os-prod: optee-os
+	$(call optee_install_core,release)
+
+optee-sdk-common: optee-sdk-prepare $(COMMON_MK_FILE) $(TEE_RELEASE_FILE) optee-os-dev optee-os-prod xtest optee-sdk-doc
 	$(call optee_install_ta,$(OPTEE_TEST_OUT_PATH),$(OPTEE_SDK_PATH)/ta)
 
 optee-sdk-doc: $(OPTEE_SDK_DOC)
@@ -340,7 +364,7 @@ optee-sdk-doc: $(OPTEE_SDK_DOC)
 	$(Q)cp $(OPTEE_SDK_DOC) $(OPTEE_SDK_PATH)/docs
 
 optee-sdk-archive: optee-sdk-common
-	@echo "  GEN     $(OPTEE_SDK_PATH)/$(OPTEE_SDK_ARCHIVE)"
+	@echo "  GEN     $(dir $(OPTEE_SDK_PATH))/$(OPTEE_SDK_ARCHIVE)"
 	$(Q)set -e;	\
 	    cd $(dir $(OPTEE_SDK_PATH));	\
 	    tar -czf $(OPTEE_SDK_ARCHIVE) $(notdir $(OPTEE_SDK_PATH));	\
@@ -408,7 +432,7 @@ endef
 ################################################################################
 
 ROOTFS_OVERLAY_PATH	?= $(OUT_PATH)/rootfs_overlay
-OPTEE_TA_LOAD_PATH	?= /opt/Misc/optee_armtz
+OPTEE_TA_LOAD_PATH	?= $(CFG_TEE_CLIENT_LOAD_PATH)/optee_armtz
 
 optee-rootfs-overlay-common : optee-client xtest
 	$(call optee_install_ta,$(OPTEE_TEST_OUT_PATH),$(ROOTFS_OVERLAY_PATH)$(OPTEE_TA_LOAD_PATH))
