@@ -6,6 +6,7 @@
 1.  [Directory structure](#1-Directory-structure)
 2.  [Introduction](#2-Introduction)
 3.  [TEE API extensions](#3-TEE-internal-API-extensions)
+4.  [Build Type](#4-Build-Type)
 
 ---
 # 1. Directory structure
@@ -54,10 +55,11 @@ execution state as well, aarch64 or aarch32.
 ## Introduction
 
 We have to extend GP Core API by adding several TEE APIs mainly for:
-* enable TAs play with necessary platform specific drivers (OTP,PMAN)
+* enable TAs play with necessary platform specific drivers (OTP,PMAN).
 * fit for particular use cases (user remap).
+* play with turing driver (key ladder).
 
-In order to avoid collisions with TEE APIs, all extended TEE APIs are collected in libuteex.
+In order to avoid collisions with TEE APIs, all extended TEE APIs are collected in `libuteex`.
 
 Please refer to `tee_api_ext.h` for details.
 
@@ -70,5 +72,29 @@ Please refer to `tee_api_ext.h` for details.
 |`TEE_Munmap`||
 |`TEE_OtpWrite`|ULI TA accessible only|
 |`TEE_MemState`||
+|`TEE_KLGenerateKey`|Supports user (operation) and TSP keys. It acts equivalently as `TEE_GenerateKey` when used to generate user key. The generated keys are with natures: *`uniqueness` on TA basis;* *`consistency` within certain TA.*|
+
+## Test Case
+A group of test cases are provided based on xtest framework, with essential coverage over extended APIs.
+Here is the list of test cases:
+| ID | Description |
+|-------|----------------------|
+|`90001`|Test TEE extension APIs Mmap/Munmap - generic|
+|`90002`|Test TEE extension APIs Mmap/Munmap - stress|
+|`90003`|Test TEE extension APIs Mmap/Munmap - accessible|
+|`90004`|Test TEE extension API OtpWrite|
+|`90005`|Test TEE extension API MemState|
+|`90006`|Test TEE extension API KLGenerateKey - cipher operations with use key|
+|`90007`|Test TEE extension API KLGenerateKey - consistency|
+|`90008`|Test TEE extension API KLGenerateKey - uniqueness|
+|`90009`|Test TEE extension API KLGenerateKey - TSP key|
+
+---
+# 4. Build Type
+Two different build type are supported: `debug` and `release`.
+
+- `debug` outcomings are with essential debug capabilities that can be helpful during developing phase, i.e. assert is enabled, .etc. They are collected under path tee/debug.
+
+- By contrast, `release` outcomings drop all debug features so as to be better suitable for project use. They are collected under path tee/release
 
 ---
