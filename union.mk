@@ -216,8 +216,16 @@ xtest-patch: xtest-patch-common
 # optee sdk
 ################################################################################
 
-AARCH32_COMPILERS	:= $(AARCH32_CROSS_COMPILE)
-AARCH64_COMPILERS	:= $(AARCH64_CROSS_COMPILE)
+# Google arm32 compiler
+$(eval $(call DECLARE_GCC,GOOGLE32,	\
+	armv7a-cros-linux-gnueabi,	\
+	$(TOOLCHAIN_ROOT)/google,	\
+	armv7a/bin, \
+	google-4.9-2015.01-x86_64_armv7a-cros-linux-gnueabi,	\
+	http://darth/scm/toolchain/tc_p111_2017-6-5.tar))
+
+AARCH32_COMPILERS	:= $(sort $(AARCH32_CROSS_COMPILE) $(GOOGLE32_CROSS_COMPILE))
+AARCH64_COMPILERS	:= $(sort $(AARCH64_CROSS_COMPILE))
 
 $(eval $(foreach n,$(AARCH32_COMPILERS),$(call build_optee_host,32,$(n))))
 $(eval $(foreach n,$(AARCH64_COMPILERS),$(call build_optee_host,64,$(n))))

@@ -11,6 +11,7 @@
 [toolchain.mk](toolchain.mk) will set two public variables on output:
 * AARCH32_CROSS_COMPILE
 * AARCH64_CROSS_COMPILE
+* GOOGLE32_CROSS_COMPILE (union only for now)
 
 It can be done by typing
 
@@ -25,10 +26,11 @@ Users can manage to set these two variables by command line whatever, in which c
 ---
 # Flag USE_LOCAL_GCC
 
-Flag USE_LOCAL_GCC is tested when set up cross compilers (aarch64 and aarch32). If it is set to 1 then build system will use the locally installed toolchains:
+Flag USE_LOCAL_GCC is tested when set up cross compilers (aarch64 and aarch32). If it is set to 1 then build system will try using the locally installed toolchains:
 
     AARCH32: arm-linux-gnueabihf-gcc
     AARCH64: aarch64-linux-gnu-gcc
+    GOOGLE32: armv7a-cros-linux-gnueabi-gcc
 Otherwise 'make toolchains' must be invoked firstly and build system will try downloading toolchains remotely as indicated by [Guidance on sdesigns ARM GNU/Linux toolchain](http://avenue.sdesigns.com/depts/RD/Teams/DTV/Wiki/Guidance%20on%20sdesigns%20ARM%20GNU%20Linux%20toolchain.aspx). i.e.
 
     make toolchains USE_LOCAL_GCC=0

@@ -356,7 +356,8 @@ optee-os-dev:
 optee-os-prod: optee-os
 	$(call optee_install_core,release)
 
-optee-sdk-common: optee-sdk-prepare $(COMMON_MK_FILE) $(TEE_RELEASE_FILE) optee-os-dev optee-os-prod xtest optee-sdk-doc
+# Use double-colon rules
+optee-sdk-common:: optee-sdk-prepare $(COMMON_MK_FILE) $(TEE_RELEASE_FILE) optee-os-dev optee-os-prod xtest optee-sdk-doc
 	$(call optee_install_ta,$(OPTEE_TEST_OUT_PATH),$(OPTEE_SDK_PATH)/ta)
 
 optee-sdk-doc: $(OPTEE_SDK_DOC)
@@ -364,7 +365,7 @@ optee-sdk-doc: $(OPTEE_SDK_DOC)
 	$(Q)cp $(OPTEE_SDK_DOC) $(OPTEE_SDK_PATH)/docs
 
 optee-sdk-archive: optee-sdk-common
-	@echo "  GEN     $(dir $(OPTEE_SDK_PATH))/$(OPTEE_SDK_ARCHIVE)"
+	@echo "  GEN     $(dir $(OPTEE_SDK_PATH))$(OPTEE_SDK_ARCHIVE)"
 	$(Q)set -e;	\
 	    cd $(dir $(OPTEE_SDK_PATH));	\
 	    tar -czf $(OPTEE_SDK_ARCHIVE) $(notdir $(OPTEE_SDK_PATH));	\
@@ -374,8 +375,9 @@ optee-sdk-archive: optee-sdk-common
 optee-sdk-prepare:
 	@echo "  GEN     optee-sdk"
 
+# Use double-colon rules
 .PHONY : optee-sdk-clean
-optee-sdk-clean:
+optee-sdk-clean::
 	$(Q)-rm -fr $(OPTEE_SDK_PATH)
 
 #
@@ -386,16 +388,18 @@ optee-sdk-clean:
 define build_optee_host
 	$(eval NO_USE=$(or $(filter $(1),32 64),$(error COMPILE_NS_USER=$(1) - Should be 32 or 64)))
 	$(eval CROSS_COMPILE_ARM$(1)	:= $(2))
-	$(eval OPTEEC_OUT_ARM$(1)	:= out/arm$(1))
-	$(eval OPTEEC_EXPORT_ARM$(1)	:= $(OPTEE_CLIENT_PATH)/$(OPTEEC_OUT_ARM$(1))/export)
-	$(eval OPTEE_TEST_OUT_ARM$(1)	:= out/arm$(1))
 	$(eval COMPILE_NSU_ARM$(1)	:= $(shell basename $(CROSS_COMPILE_ARM$(1))))
-	$(eval TEE_PKG_PATH_ARM$(1)	:= $(OPTEE_SDK_PATH)/host/$(COMPILE_NSU_ARM$(1):-=))
+	$(eval NSU_BINPREFIX		:= $(COMPILE_NSU_ARM$(1):-=))
+	$(eval OPTEEC_OUT_ARM$(1)	:= out/arm$(1)/$(NSU_BINPREFIX))
+	$(eval OPTEEC_EXPORT_ARM$(1)	:= $(OPTEE_CLIENT_PATH)/$(OPTEEC_OUT_ARM$(1))/export)
+	$(eval OPTEE_TEST_OUT_ARM$(1)	:= out/arm$(1)/$(NSU_BINPREFIX))
+	$(eval TEE_PKG_PATH_ARM$(1)	:= $(OPTEE_SDK_PATH)/host/$(NSU_BINPREFIX))
 
-optee-client-clean-arm$(1) :
-	$(MAKE) -C $(OPTEE_CLIENT_PATH) clean
+optee-client-clean-arm$(1)-$(NSU_BINPREFIX) :
+	$(MAKE) -C $(OPTEE_CLIENT_PATH) $(OPTEE_CLIENT_COMMON_FLAGS)	\
+		O=$(OPTEEC_OUT_ARM$(1)) clean
 
-optee-client-arm$(1) :
+optee-client-arm$(1)-$(NSU_BINPREFIX) :
 	$(MAKE) -C $(OPTEE_CLIENT_PATH) $(OPTEE_CLIENT_COMMON_FLAGS)	\
 		CROSS_COMPILE=$(CROSS_COMPILE_ARM$(1)) O=$(OPTEEC_OUT_ARM$(1))
 
@@ -406,14 +410,14 @@ $(eval XTEST_COMMON_FLAGS_ARM$(1) := CROSS_COMPILE_HOST=$(CROSS_COMPILE_ARM$(1))
 	COMPILE_NS_USER=$(1) \
 	O=$(OPTEE_TEST_PATH)/$(OPTEE_TEST_OUT_ARM$(1)))
 
-xtest-host-arm$(1): optee-os optee-client-arm$(1)
+xtest-host-arm$(1)-$(NSU_BINPREFIX): optee-os optee-client-arm$(1)-$(NSU_BINPREFIX)
 	$(MAKE) -C $(OPTEE_TEST_PATH) $(XTEST_COMMON_FLAGS_ARM$(1)) xtest
 
-xtest-host-clean-arm$(1):
+xtest-host-clean-arm$(1)-$(NSU_BINPREFIX):
 	$(MAKE) -C $(OPTEE_TEST_PATH)/host/xtest TA_DEV_KIT_DIR=$(OPTEE_OS_TA_DEV_KIT_DIR) \
 		O=$(OPTEE_TEST_PATH)/$(OPTEE_TEST_OUT_ARM$(1))/xtest q=$(Q) clean
 
-install-optee-host-arm$(1): optee-client-arm$(1) xtest-host-arm$(1)
+install-optee-host-arm$(1)-$(NSU_BINPREFIX): optee-client-arm$(1)-$(NSU_BINPREFIX) xtest-host-arm$(1)-$(NSU_BINPREFIX)
 	@echo "  INS     arm$(1) host for optee-sdk"
 	$(Q)mkdir -p $(TEE_PKG_PATH_ARM$(1))/teec
 	$(Q)cp -dapr $(OPTEEC_EXPORT_ARM$(1))/* $(TEE_PKG_PATH_ARM$(1))/teec
@@ -421,9 +425,11 @@ install-optee-host-arm$(1): optee-client-arm$(1) xtest-host-arm$(1)
 	$(Q)mkdir -p $(TEE_PKG_PATH_ARM$(1))/bin
 	$(Q)cp $(OPTEE_TEST_PATH)/$(OPTEE_TEST_OUT_ARM$(1))/xtest/xtest $(TEE_PKG_PATH_ARM$(1))/bin
 
-optee-sdk-common: install-optee-host-arm$(1)
+# Use double-colon rules
+optee-sdk-common:: install-optee-host-arm$(1)-$(NSU_BINPREFIX)
 
-optee-sdk-clean: optee-client-clean-arm$(1) xtest-host-clean-arm$(1)
+# Use double-colon rules
+optee-sdk-clean:: optee-client-clean-arm$(1)-$(NSU_BINPREFIX) xtest-host-clean-arm$(1)-$(NSU_BINPREFIX)
 
 endef
 

@@ -1,27 +1,24 @@
 #
 # $1 gcc
 #
-define PPROBE_GCC
-	$(if $(shell $(1) -v),$(1),)
-endef
+PPROBE_GCC	= $(if $(shell $(1) -v),$(1),)
 
-# $1 - type (AARCH32|AARCH64)
+# $1 - type (AARCH32|AARCH64|...)
 # $2 - absolute path to gcc
 define EXPORT_GCC
 	$(eval $(1)_CROSS_COMPILE ?= $(patsubst %-gcc,%-,$2))
+	$(info $(1)_CROSS_COMPILE: $($(1)_CROSS_COMPILE))
 endef
 
 #
 # Get full path for local gcc
-# $1 - type (AARCH32|AARCH64)
+# $1 - type (AARCH32|AARCH64|...)
 #
-define LOCAL_GCC
-	$(shell which $(LOCAL_$(1)_GCC))
-endef
+LOCAL_GCC	= $(shell which $(LOCAL_$(1)_GCC))
 
 #
 # Install GCC from remote
-# $1 - type (AARCH32|AARCH64)
+# $1 - type (AARCH32|AARCH64|...)
 #
 define INSTALL_GCC
 	$(eval TARGET		:= $(TOOLCHAIN_ROOT)/.INSTALL_$(1))
@@ -36,7 +33,27 @@ $(TARGET) :
 	tar xf $(TOOLCHAIN_ROOT)/$(TMP_GCC_VER).tar.xz -C $($(1)_PATH) --strip-components=1
 	$(Q)touch $$@
 
-toolchains : $(TARGET)
+# Use double-colon rules
+toolchains :: $(TARGET)
+endef
+
+#
+# declare cross compiler and set it up in the end
+# $1 - type (AARCH32|AARCH64|...)
+# $2 - binprefix
+# $3 - root directory
+# $4 - relative path to bin
+# $5 - local tarball name
+# $6 - tarball url
+define DECLARE_GCC
+	$(eval TYPE			:= $(strip $(1)))
+	$(eval LOCAL_$(TYPE)_GCC	:= $(strip $(2))-gcc)
+	$(eval $(TYPE)_PATH		:= $(strip $(3)))
+	$(eval $(TYPE)_GCC		:= $($(TYPE)_PATH)/$(strip $(4))/$(strip $(2))-gcc)
+	$(eval $(TYPE)_GCC_VERSION	:= $(strip $(5)))
+	$(eval SRC_$(TYPE)_GCC		:= $(strip $(6)))
+
+	$(eval $(call SETUP_GCC,$(TYPE)))
 endef
 
 #
@@ -69,15 +86,12 @@ AARCH64_GCC			?= $(AARCH64_PATH)/linaro64/bin/aarch64-linux-gnu-gcc
 AARCH64_GCC_VERSION 		?= linaro-5.3-2016.02-x86_64_aarch64-linux-gnu
 SRC_AARCH64_GCC 		?= http://darth/BSP/toolchain/linaro/binaries/aarch64/$(AARCH64_GCC_VERSION)-sdesigns.tar.xz
 
-# default rule
+# default rule, use double-colon rules
 .PHONY: toolchains
-toolchains:
+toolchains::
 
 $(eval $(call assert_boolean,USE_LOCAL_GCC))
 $(eval $(foreach n,$(TOOLCHAIN_SETS),$(call SETUP_GCC,$(n))))
-
-$(info AARCH64_CROSS_COMPILE: $(AARCH64_CROSS_COMPILE))
-$(info AARCH32_CROSS_COMPILE: $(AARCH32_CROSS_COMPILE))
 
 toolchains-cleaner:
 	@-rm -fr $(TOOLCHAIN_ROOT)
